@@ -111,6 +111,6 @@ class IncomeTaxCalculator(object):
             writer.writerows(result)
 
 if __name__ == '__main__':
-    calculator = IncomeTaxCalculator(UserData)
+    calculator = IncomeTaxCalculator(UserData())
     calculator.export()
 
