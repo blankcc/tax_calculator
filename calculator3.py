@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
 import sys
 import csv
-INCOME_TAX_QUICK_LOOKUP_TABLE = [
-    IncomeTaxQuickLookupItem(80000, 0.45, 13505),
-    IncomeTaxQuickLookupItem(55000, 0.35, 5505),
-    IncomeTaxQuickLookupItem(35000, 0.30, 2755),
-    IncomeTaxQuickLookupItem(9000, 0.25, 1005),
-    IncomeTaxQuickLookupItem(4500, 0.2, 555),
-    IncomeTaxQuickLookupItem(1500, 0.1, 105),
-    IncomeTaxQuickLookupItem(0, 0.03, 0)
-]
 
 class Args(object):
     def __init__(self):
@@ -45,8 +36,6 @@ class Config(object):
                     print("Parametr Error")
                     exit()
         return config
-    def get_config(self,key):
-        return self.config[key]
     @property
     def get_JiShuL(self):
         return self.config['JiShuL']
@@ -81,10 +70,10 @@ class UserData(object):
 class IncomeTaxCalculator(object):
     def calc_for_all_userdata(self):
         result = []
-        for employee_id, income in self.userdata:
-            data = [employee_id, income]
+        for EId, income in self.userdata:
+            data = [EIs, income]
             social_insurance_money = '{:.2f}'.format(self.calc_social_insurance_money(income))
-            tax, remain = self.calc_income_tax_and_remain(income)
+            tax, remain = self.individual_income_tax(income)
             data += [social_insurance_money, tax, remain]
             result.append(data)
         return result
@@ -121,5 +110,7 @@ class IncomeTaxCalculator(object):
             write = csv.writer(f)
             writer.writerows(result)
 
-if __name__ = '__main__':
+if __name__ == '__main__':
+    calculator = IncomeTaxCalculator(UserData)
+    calculator.export()
 
