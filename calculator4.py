@@ -59,8 +59,6 @@ class Config(object):
 
 config = Config()
 class UserData(Process):
-    def __init__(self):
-        self.userdata = self._read_users_data()
     def _read_users_data(self):
         userdata = []
         with open(args.userdata_path) as f:
@@ -78,8 +76,6 @@ class UserData(Process):
             q_userdata.put(data)
 
 class IncomeTaxCalculator(Process):
-    def __init__(self,userdata):
-        self.userdata = userdata
     def calc_society_insurance(self,income):
         if income<=config.get_JiShuL:
             return config.get_JiShuL*config.get_total_shebao
@@ -112,7 +108,7 @@ class IncomeTaxCalculator(Process):
         while True:
             try:
                 EId, income = q_userdata.get(timeout=1)
-            except queue.Empty:
+            except:
                 return
             data = [EId, income]
             social_insurance_money = '{:.2f}'.format(self.calc_society_insurance(income))
@@ -131,14 +127,10 @@ class Exporter(Process):
                 writer = csv.writer(f)
                 try:
                     item = q_result.get(timeout=1)
-                except queue.Empty:
+                except:
                     return
                 writer.writerow(item)
 
-def main():
-    Process(f1).start()
-    Process(f2).start()
-    Process(f3).start()
 if __name__ == '__main__':
     workers = [
         UserData(),
