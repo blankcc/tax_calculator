@@ -3,6 +3,8 @@ import sys
 import csv
 from multiprocessing import Process,Queue
 
+q_userdata = Queue()
+q_result = Queue()
 class Args(object):
     def __init__(self):
         self.args = sys.argv[1:]
@@ -56,7 +58,7 @@ class Config(object):
             self._get_config('ShengYu')+self._get_config('GongJiJin'))
 
 config = Config()
-class UserData(object):
+class UserData(Process):
     def __init__(self):
         self.userdata = self._read_users_data()
     def _read_users_data(self):
@@ -70,12 +72,12 @@ class UserData(object):
                 except:
                     print("Parameter Error2")
                     exit()
-                userdata.append((EId,income))
-        return userdata
-    def __iter__(self):
-        return iter(self.userdata)
+                yield((EId,income))
+    def run(self):
+        for data in self._read_users_data():
+            q_userdata.put(data)
 
-class IncomeTaxCalculator(object):
+class IncomeTaxCalculator(Process):
     def __init__(self,userdata):
         self.userdata = userdata
     def calc_society_insurance(self,income):
@@ -107,36 +109,41 @@ class IncomeTaxCalculator(object):
             return '{:.2f}'.format(real_tax_due*0.45-13505),'{:.2f}'.format(income - real_tax_due*0.45+13505 - social_insurance_money)
 
     def calc_for_all_userdata(self):
-        result = []
-        for EId, income in self.userdata:
+        while True:
+            try:
+                EId, income = q_userdata.get(timeout=1)
+            except queue.Empty:
+                return
             data = [EId, income]
             social_insurance_money = '{:.2f}'.format(self.calc_society_insurance(income))
             tax, remain = self.individual_income_tax(income)
             data += [social_insurance_money, tax, remain]
-            result.append(data)
-        return result
+            yield data
 
-    def export(self,file_type='csv'):
-        result = self.calc_for_all_userdata()
-        with open(args.income_path,'w') as f:
-            writer = csv.writer(f)
-            writer.writerows(result)
-def f1():
-    userdata = UserData()
-    queue.put(userdata)
+    def run(self):
+        for data in self.calc_for_all_userdata():
+            q_result.put(data)
 
-def f2():
-    userdata = queue.get()
-    calculator = IncomeTaxCalculator(userdata)
-    queue.put(calculator)
-
-def f3():
-    calculator = queue.get()
-    calculator.export()
+class Exporter(Process):
+    def run(self):
+        with open(args.income_path, 'w', newline='') as f:
+            while True:
+                writer = csv.writer(f)
+                try:
+                    item = q_result.get(timeout=1)
+                except queue.Empty:
+                    return
+                writer.writerow(item)
 
 def main():
     Process(f1).start()
     Process(f2).start()
     Process(f3).start()
 if __name__ == '__main__':
-    main()
+    workers = [
+        UserData(),
+        IncomeTaxCalculator(),
+        Exporter()
+    ]
+    for worker in workers:
+        worker.run()
