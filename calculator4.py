@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 import sys
 import csv
+import configparser
+from datetime import datetime
 from multiprocessing import Process,Queue
+from getopt import getopt,GetoptError
 
 q_userdata = Queue()
 q_result = Queue()
 class Args(object):
     def __init__(self):
-        self.args = sys.argv[1:]
-    def _get_path(self,parameter):
+        self.options = self._options()
+    def _options(self):
         try:
-            index = self.args.index(parameter)
-            return self.args[index+1]
-        except:
+            opts,_ = getopt(sys.argv[1:],'hC:c:d:o:')
+        except GetpotError:
             print("Parameter Error0")
             exit()
+        options = dict(opts)
+        return options
+    def _get_path(self,option):
+        value = self.options.get(option)
+        return value
+    @property
+    def city_name(self):
+        return self._get_path('-C')
     @property
     def config_path(self):
         return self._get_path('-c')
@@ -29,19 +39,15 @@ class Config(object):
     def __init__(self):
         self.config = self._read_config()
     def _read_config(self):
-        config = {}
-        with open(args.config_path,'r') as f:
-            for line in f.readlines():
-                key,value = line.split('=')
-                try:
-                    config[key.strip()]=float(value.strip())
-                except:
-                    print("Parametr Error1")
-                    exit()
-        return config
+        config = configparser.ConfigParser()
+        config.read(args.config_path)
+        if args.city_name and args.city_name.upper() in config.sections():
+            return config[args.city_name.upper()]
+        else:
+            return config['DEFAULT']
     def _get_config(self,key):
         try:
-            return self.config[key]
+            return float(self.config[key])
         except:
             print('Config Error')
             exit()
@@ -114,6 +120,7 @@ class IncomeTaxCalculator(Process):
             social_insurance_money = '{:.2f}'.format(self.calc_society_insurance(income))
             tax, remain = self.individual_income_tax(income)
             data += [social_insurance_money, tax, remain]
+            data.append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             yield data
 
     def run(self):
@@ -132,10 +139,9 @@ class Exporter(Process):
                 writer.writerow(item)
 
 if __name__ == '__main__':
-    workers = [
-        UserData(),
-        IncomeTaxCalculator(),
-        Exporter()
+    workers = [UserData(),
+               IncomeTaxCalculator(),
+               Exporter()
     ]
     for worker in workers:
         worker.run()
